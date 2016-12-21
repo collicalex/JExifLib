@@ -20,9 +20,7 @@ import javax.imageio.ImageIO;
  * TODO: Decode MarkerNote
  * TODO: Decode UserComment
  * TODO: Decode Thumbnail (other than compressFormat 6)
- * TODO: Decode GPSInfo subIDF
- * TODO: In Rational: add a getDoubleValue() which return the computation, and add a getIntegerValue() which return the computation only if the divide result is an integer!
- * TODO: Add GPS specific class for Lat/Lng with converter hhmmss to degrees etc
+ *  * TODO: In Rational: add a getDoubleValue() which return the computation, and add a getIntegerValue() which return the computation only if the divide result is an integer!
  * 
  * 
  * Some useful website found to understand JPEG metadata format and EXIF tags: 
@@ -41,6 +39,12 @@ import javax.imageio.ImageIO;
  * http://www.sno.phy.queensu.ca/~phil/exiftool/TagNames/EXIF.html
  * http://www.exiv2.org/tags.html
  * https://www.media.mit.edu/pia/Research/deepview/exif.html
+ * 
+ * MakerNote tag:
+ * http://owl.phy.queensu.ca/~phil/exiftool/makernote_types.html
+ * http://www.ozhiker.com/electronics/pjmt/jpeg_info/makernotes.html
+ * http://www.exiv2.org/metadata.html
+ * http://www.sno.phy.queensu.ca/~phil/exiftool/TagNames/EXIF.html
  */
 public class Exif {
 	
@@ -62,7 +66,7 @@ public class Exif {
 	
 	
 	//-------------------------------------------------------------------------
-	//-- Data with getters
+	//-- Getters
 	//-------------------------------------------------------------------------
 
 	public ExifValue get(int tagValue) {
@@ -80,6 +84,37 @@ public class Exif {
 	public BufferedImage getThumbnail() {
 		return _thumbnail;
 	}
+	
+	//-------------------------------------------------------------------------
+	//-- Helpers
+	//-------------------------------------------------------------------------
+	
+	public Double getGPSLatitude() {
+		return convertGPS(this.get(0x0001), this.get(0x0002));
+	}
+	
+	public Double getGPSLongitude() {
+		return convertGPS(this.get(0x0003), this.get(0x0004));
+	}
+	
+	private Double convertGPS(ExifValue ref, ExifValue coord) {
+		if ((ref != null) && (coord != null)) {
+			if ((ref.getValue() != null) && (coord.getValue() != null)) {
+				List<Rational> coordinates = (List<Rational>) coord.getValue();
+				String reference = ((String) ref.getValue()).toUpperCase().trim();
+				double degrees = coordinates.get(0).getValue() + coordinates.get(1).getValue() / 60. + coordinates.get(2).getValue() / 3600.;
+				if ((reference.compareTo("N") != 0) && (reference.compareTo("E") != 0)) {
+					degrees *= -1.;
+				}
+				return degrees;
+			}
+		}
+		return null;
+	}
+	
+	//-------------------------------------------------------------------------
+	//-- Internal data
+	//-------------------------------------------------------------------------
 	
 	private void initExifDatas() {
 		_exifDataByTagValue =  new HashMap<Integer, ExifValue>();
@@ -123,7 +158,7 @@ public class Exif {
 		this.addExifData(0x9208, "LightSource", "Light source, actually this means white balance setting. '0' means auto, '1' daylight, '2' fluorescent, '3' tungsten, '10' flash.");
 		this.addExifData(0x9209, "Flash", "0x0 = No Flash / 0x1 = Fired / 0x5 = Fired, Return not detected / 0x7 = Fired, Return detected / 0x8 = On, Did not fire / 0x9 = On, Fired / 0xd = On, Return not detected / 0xf = On, Return detected / 0x10 = Off, Did not fire / 0x14 = Off, Did not fire, Return not detected / 0x18 = Auto, Did not fire / 0x19 = Auto, Fired / 0x1d = Auto, Fired, Return not detected / 0x1f = Auto, Fired, Return detected / 0x20 = No flash function / 0x30 = Off, No flash function / 0x41 = Fired, Red-eye reduction / 0x45 = Fired, Red-eye reduction, Return not detected / 0x47 = Fired, Red-eye reduction, Return detected / 0x49 = On, Red-eye reduction / 0x4d = On, Red-eye reduction, Return not detected / 0x4f = On, Red-eye reduction, Return detected / 0x50 = Off, Red-eye reduction / 0x58 = Auto, Did not fire, Red-eye reduction / 0x59 = Auto, Fired, Red-eye reduction / 0x5d = Auto, Fired, Red-eye reduction, Return not detected / 0x5f = Auto, Fired, Red-eye reduction, Return detected");
 		this.addExifData(0x920a, "FocalLength", "Focal length of lens used to take image. Unit is millimeter.");
-		this.addExifData(0x927c, "MakerNote", "Manufacturer specific information.");
+		this.addExifData(0x927c, "MakerNote", "Manufacturer specific information.", true);
 		this.addExifData(0x9286, "UserComment", "Stores user comment");
 		this.addExifData(0xa000, "FlashPixVersion", "The FlashPix format version supported by a FPXR file. If the FPXR function supports Flashpix format Ver. 1.0, this is indicated similarly to ExifVersion by recording '0100' as 4-byte ASCII.");
 		this.addExifData(0xa001, "ColorSpace", "Normally sRGB (=1) is used to define the color space based on the PC monitor conditions and environment. If a color space other than sRGB is used, Uncalibrated (=65535) is set. Image data recorded as Uncalibrated can be treated as sRGB when it is converted to Flashpix. ");
@@ -158,6 +193,7 @@ public class Exif {
 		this.addExifData(0x9292, "SubsecTimeDigitized", "A tag used to record fractions of seconds for the DateTimeDigitized tag.");
 		this.addExifData(0xA404, "DigitalZoomRatio", "Indicates the digital zoom ratio when the image was shot. If the numerator of the recorded value is 0, this indicates that digital zoom was not used. ");
 		this.addExifData(0xA407, "GainControl", "Indicates the degree of overall image gain adjustment.  The specification defines these values: 0 = None / 1 = Low gain up / 2 = High gain up / 3 = Low gain down / 4 = High gain down.");
+		this.addExifData(0xA432, "LensSpecification", "This tag notes minimum focal length, maximum focal length, minimum F number in the minimum focal length, and minimum F number in the maximum focal length, which are specification information for the lens that was used in photography. When the minimum F number is unknown, the notation is 0/0.");
 		//-- Tag used by GPSInfo ----------------------------------------------
 		this.addExifData(0x0001, "GPSLatitudeRef", "Indicates whether the latitude is north or south latitude. The ASCII value 'N' indicates north latitude, and 'S' is south latitude.");
 		this.addExifData(0x0002, "GPSLatitude", "Indicates the latitude. The latitude is expressed as three RATIONAL values giving the degrees, minutes, and seconds, respectively. If latitude is expressed as degrees, minutes and seconds, a typical format would be dd/1,mm/1,ss/1. When degrees and minutes are used and, for example, fractions of minutes are given up to two decimal places, the format would be dd/1,mmmm/100,0/1.");
@@ -210,13 +246,21 @@ public class Exif {
 		return exifValue;
 	}
 	
-	private class Rational {
+	public class Rational {
 		private int _numerator;
 		private int _denominator;
 		
 		public Rational(int numerator, int denominator) {
 			_numerator = numerator;
 			_denominator = denominator;
+		}
+		
+		public double getValue() {
+			if (_denominator == 0) {
+				return 0;
+			} else {
+				return (double)_numerator / (double)_denominator;
+			}
 		}
 		
 		@Override
@@ -236,16 +280,18 @@ public class Exif {
 		private String   _valueS;
 		private Rational _valueR;
 		
+		private List<Rational> _valueLR;
+		
 		
 		public ExifValue(int tagValue) {
-			this.save(tagValue, null, null, false);
+			this.init(tagValue, null, null, false);
 		}
 		
 		public ExifValue(int tagValue, String tagName, String description, boolean isSubIDF) {
-			this.save(tagValue, tagName, description, isSubIDF);
+			this.init(tagValue, tagName, description, isSubIDF);
 		}
 		
-		private void save(int tagValue, String tagName, String description, boolean isSubIDF) {
+		private void init(int tagValue, String tagName, String description, boolean isSubIDF) {
 			if (_debug) {	
 				_tagValue = tagValue;
 				_tagName = tagName;
@@ -275,6 +321,13 @@ public class Exif {
 			_valueR = value;
 		}
 		
+		public void appendValue(Rational value) {
+			if (_valueLR == null) {
+				_valueLR = new LinkedList<Rational>();
+			}
+			_valueLR.add(value);
+		}
+		
 		public Object getValue() {
 			if (_valueS != null) {
 				return _valueS;
@@ -282,6 +335,8 @@ public class Exif {
 				return _valueI;
 			} else if (_valueR != null) {
 				return _valueR;
+			} else if (_valueLR != null) {
+				return _valueLR;
 			} else {
 				return null;
 			}
@@ -690,12 +745,14 @@ public class Exif {
 	}
 	
 	private class SubIDFPtr {
-		public SubIDFPtr(String name, Long ptr) {
+		public SubIDFPtr(String name, Long ptr, boolean isMakerNote) {
 			this.name = name;
 			this.ptr = ptr;
+			this.isMakerNote = isMakerNote;
 		}
 		public String name;
 		public Long ptr;
+		public boolean isMakerNote;
 	}
 	
 	private void parse_SubIFD(FileInputStream in, boolean isLittleEndian, String prefix, long tiffHeaderPosition) throws IOException { 
@@ -705,9 +762,9 @@ public class Exif {
 		b1 = in.read();
 		int nbIFDEntries = decode(b0, b1, isLittleEndian);
 		
-		debug(prefix + " Entries : " + nbIFDEntries);
+		debug("\n" + prefix + " Entries : " + nbIFDEntries);
 		
-		List<SubIDFPtr> subIDF= new LinkedList<SubIDFPtr>();
+		List<SubIDFPtr> subIDF = new LinkedList<SubIDFPtr>();
 
 		for (int i = 1; i <= nbIFDEntries; ++i) {
 			b0 = in.read();
@@ -738,30 +795,214 @@ public class Exif {
 			boolean isSubIdf = false;
 			if (exifValue != null) {
 				if (exifValue.isSubIDF()) {
-					if ((format != 4) && (format != 13)) {
-						throw new IOException("IDF tag " + exifValue.getShortTitle() + " must be in format 4 (unsigned long) or 13 (offset to subdirectory), but is " + format);
+					if (tag == 0x927c) { //MakerNote
+						if (format != 7) {
+							throw new IOException("IDF tag " + exifValue.getShortTitle() + " must be in format 7 (undefined), but is " + format);
+						}
+					} else {
+						if ((format != 4) && (format != 13)) {
+							throw new IOException("IDF tag " + exifValue.getShortTitle() + " must be in format 4 (unsigned long) or 13 (offset to subdirectory), but is " + format);
+						}
 					}
 					isSubIdf = true;
-					subIDF.add(new SubIDFPtr(exifValue.getTagName(), (long)value));
+					subIDF.add(new SubIDFPtr(exifValue.getTagName(), (long)value, tag == 0x927c));
 					debug("      " + String.format("%02d", i) + " : TAG = " + this.get(tag).getFullTitle(), this.get(tag).getTagName() == null);
 				}
 			}
 			
 			if (isSubIdf == false) {
-				parseIFDData(i, tag, format, count, b0, b1, b2, b3, isLittleEndian, in, tiffHeaderPosition, true);
+				decodeTag(i, tag, format, count, b0, b1, b2, b3, isLittleEndian, in, tiffHeaderPosition, true);
 			}
 		}
 		
 		for (SubIDFPtr offset : subIDF) {
 			long position = in.getChannel().position();
 			in.getChannel().position(tiffHeaderPosition + offset.ptr);
-			parse_SubIFD(in, isLittleEndian, "Sub-IDF '"+ offset.name + "'", tiffHeaderPosition);
+			if (offset.isMakerNote) {
+				parse_MakerNote(in, isLittleEndian, "Sub-IDF '"+ offset.name + "'", tiffHeaderPosition);
+			} else {
+				parse_SubIFD(in, isLittleEndian, "Sub-IDF '"+ offset.name + "'", tiffHeaderPosition);
+			}
 			in.getChannel().position(position);
 		}
 	}
+	
+	
+	private void parse_MakerNote(FileInputStream in, boolean isLittleEndian, String prefix, long tiffHeaderPosition) throws IOException {
+		String manufacturer = getStringValue(this.get(0x010F)).trim();
+		String model = getStringValue(this.get(0x0110)).trim();
+		
+		debug("\n" + prefix + " for " + manufacturer + " " + model);
+		
+		/*
+		String str = "";
+		for (int i = 0; i < 50; ++i) {
+			str += (char)in.read();
+		}
+		System.out.println(str);
+		*/
+		
+		if (manufacturer.compareTo("Apple") == 0) {
+			parse_MakerNote_Apple(in, isLittleEndian, tiffHeaderPosition);
+		} else {
+			debug("      " + "    Unknow how to decode specific data encoding for manufacturer '" + manufacturer + "' and camera '" + model + "'", true);
+		}
+			
+	}
+	
+	private void parse_MakerNote_Apple(FileInputStream in, boolean isLittleEndian, long tiffHeaderPosition) throws IOException {
+		String identifer = "Apple iOS";
+		for (int i = 0; i < identifer.length(); ++i) {
+			if (identifer.charAt(i) != (char)in.read()) {
+				//TODO : REJECT
+			}
+		}
+		
+		//TODO: maybe move forward to +1 or +2 bytes (\0\0 chars at end of marker?), then read tags?
+		
+		/*
+		int b0, b1, b2, b3;
+		
+		b0 = in.read();
+		b1 = in.read();
+		int tag = decode(b0, b1, isLittleEndian);
+		
+		int t0 = b0;
+		int t1 = b1;
+		
+		b0 = in.read();
+		b1 = in.read();
+		int format = decode(b0, b1, isLittleEndian);
+		
+		b0 = in.read();
+		b1 = in.read();
+		b2 = in.read();
+		b3 = in.read();
+		int count = decode(b0, b1, b2, b3, isLittleEndian);
+
+		b0 = in.read();
+		b1 = in.read();
+		b2 = in.read();
+		b3 = in.read();
+		int value = decode(b0, b1, b2, b3, isLittleEndian);
+		
+		int idx = 1;
+		
+
+		
+		debug("      " + String.format("%02d", idx) + " : TAG = 0x" + String.format("%02X", t0) + String.format("%02X", t1));
+		debug("      " + String.format("%02d", idx) + " : FORMAT = " + format);
+		debug("      " + String.format("%02d", idx) + " : COUNT = " + count);
+		debug("      " + String.format("%02d", idx) + " : VALUE = " + value + " (" + String.format("%02X", b0) + " " + String.format("%02X", b1) + " " + String.format("%02X", b2) + " " + String.format("%02X", b3) + ")");
+		*/
+	}
 
 	
-	private ExifValue parseIFDData(int idx, int tag, int format, int count, int b0, int b1, int b2, int b3, boolean isLittleEndian, FileInputStream in, long tiffHeaderPosition, boolean saveValue) throws IOException {
+	//IFD1 = Thumbnail
+	//There are 3 formats for thumbnails; JPEG format(JPEG uses YCbCr), RGB TIFF format, YCbCr TIFF format.
+	private void parse_IFD1(FileInputStream in, boolean isLittleEndian, long tiffHeaderPosition, boolean extractThumbnail) throws IOException { 
+		int b0, b1, b2, b3;
+		
+		b0 = in.read();
+		b1 = in.read();
+		int nbIFDEntries = decode(b0, b1, isLittleEndian);
+		
+		debug("\nIFD1 Entries : " + nbIFDEntries);
+
+		HashMap<Integer, ExifValue> ifd1ExifData = new HashMap<Integer, ExifValue>();
+		
+		for (int i = 1; i <= nbIFDEntries; ++i) {
+			b0 = in.read();
+			b1 = in.read();
+			int tag = decode(b0, b1, isLittleEndian);
+			
+			b0 = in.read();
+			b1 = in.read();
+			int format = decode(b0, b1, isLittleEndian);
+			if ((format < 1) || (format > 13)) {
+				throw new IOException("IDF tag format must bet between [1-13], but is " + format);
+			}
+			
+			b0 = in.read();
+			b1 = in.read();
+			b2 = in.read();
+			b3 = in.read();
+			int count = decode(b0, b1, b2, b3, isLittleEndian);
+
+			b0 = in.read();
+			b1 = in.read();
+			b2 = in.read();
+			b3 = in.read();
+			//int value = decode(b0, b1, b2, b3, isLittleEndian);
+			
+			ifd1ExifData.put(tag, decodeTag(i, tag, format, count, b0, b1, b2, b3, isLittleEndian, in, tiffHeaderPosition, false));
+		}
+
+		if (extractThumbnail) {
+			long compressionMethod = getLongValue(ifd1ExifData.get(0x0103));
+			
+			if (compressionMethod == 6) {//it's jpeg compression (old method)
+				long jpegIFOffset = getLongValue(ifd1ExifData.get(0x0201));
+				long jpegIFByteCount = getLongValue(ifd1ExifData.get(0x0202));
+				
+				long position = in.getChannel().position();
+				in.getChannel().position(tiffHeaderPosition + jpegIFOffset);
+				byte[] thumbnailData = new byte[(int) jpegIFByteCount];
+				int bread = in.read(thumbnailData, 0, (int)jpegIFByteCount);
+				if (bread != jpegIFByteCount) {
+					throw new IOException("Unable to read all thumbnail data bytes. Have read only " + bread + " bytes instead of " + jpegIFByteCount);
+				}
+				
+				_thumbnail = ImageIO.read(new ByteArrayInputStream(thumbnailData));
+				
+				in.getChannel().position(position);
+				
+				debug("      " + "---> Thumbnail extraction done");
+			} else {
+				debug("      " + "---> Uknown compression method " + compressionMethod + " to extract thumbnail image.", true);
+			}
+		}
+		
+		
+		
+		//IFD1 always and to a pointer to IFD2 (or 0 if no IFD2).
+		b0 = in.read();
+		b1 = in.read();
+		b2 = in.read();
+		b3 = in.read();
+		
+		int offsetToIFD2 = decode(b0, b1, b2, b3, isLittleEndian);
+		
+		debug("IFD1 Offset to IFD2 : " + offsetToIFD2 + " (" + String.format("%02X", b0) + " " + String.format("%02X", b1) + " " + String.format("%02X", b2) + " " + String.format("%02X", b3) + ")");
+
+		
+	}
+	
+	private long getLongValue(ExifValue exifValue) {
+		if (exifValue != null) {
+			if (exifValue.getValue() instanceof Integer) {
+				return ((Integer)exifValue.getValue()).longValue();
+			}
+		}
+		return 0;
+	}
+
+	private String getStringValue(ExifValue exifValue) {
+		if (exifValue != null) {
+			if (exifValue.getValue() instanceof String) {
+				return ((String)exifValue.getValue()).trim();
+			}
+		}
+		return "";
+	}
+	
+	
+	//-------------------------------------------------------------------------
+	// Decode exif tag value
+	//-------------------------------------------------------------------------
+	
+	//When count * type lenght > 4 bytes, the value is not directly embeded into b0 b1, b2, b3; but b0b1b2b3 is a pointer to the location of the values.
+	private ExifValue decodeTag(int idx, int tag, int format, int count, int b0, int b1, int b2, int b3, boolean isLittleEndian, FileInputStream in, long tiffHeaderPosition, boolean saveValue) throws IOException {
 		ExifValue exifValue = this.get(tag);
 		if (exifValue == null) {
 			exifValue = this.addExifData(tag);
@@ -819,31 +1060,40 @@ public class Exif {
 		} else if (format == 5) {
 			formatType = "unsigned rational (length : 8 byte)";
 			
-			if (count == 1) {
+			if (count >= 1) {
+				
 				long position = in.getChannel().position();
 				int offset = decode(b0, b1, b2, b3, isLittleEndian);
 				in.getChannel().position(tiffHeaderPosition + offset);
 				
-				int o1 = in.read();
-				int o2 = in.read();
-				int o3 = in.read();
-				int o4 = in.read();
-				int numerator = decode(o1, o2, o3, o4, isLittleEndian);
-				
-				int o5 = in.read();
-				int o6 = in.read();
-				int o7 = in.read();
-				int o8 = in.read();
-				int denominator = decode(o5, o6, o7, o8, isLittleEndian);
-				
-				exifValue.setValue(new Rational(numerator, denominator));
+				for (int i = 0; i < count; ++i) {
+					int o1 = in.read();
+					int o2 = in.read();
+					int o3 = in.read();
+					int o4 = in.read();
+					int numerator = decode(o1, o2, o3, o4, isLittleEndian);
+					
+					int o5 = in.read();
+					int o6 = in.read();
+					int o7 = in.read();
+					int o8 = in.read();
+					int denominator = decode(o5, o6, o7, o8, isLittleEndian);
+					
+					if (count == 1) {
+						exifValue.setValue(new Rational(numerator, denominator));
+					} else {
+						exifValue.appendValue(new Rational(numerator, denominator));
+					}
+				}
 				
 				in.getChannel().position(position);
 			}
+			
 		} else if (format == 6) { 
 			formatType = "signed byte (length : 1 byte)";
 		} else if (format == 7) { 
 			formatType = "undefined (length : 1 byte)";
+			//when undefined format used, we must decode value according by tag!
 			if ((tag == 0x9000) && (count == 4)) {
 				exifValue.setValue("" + (char)b0 + (char)b1 + (char)b2 + (char)b3);
 			} else if ((tag ==  0x9101) && (count == 4)) {
@@ -854,17 +1104,7 @@ public class Exif {
 				exifValue.setValue(decode(b0, b1, b2, b3, isLittleEndian));
 			} else if ((tag == 0xA301) && (count == 1)) {
 				exifValue.setValue(decode(b0, b1, b2, b3, isLittleEndian));
-			} /* else if (tag == 0x927C) {
-				long position = in.getChannel().position();
-				int offset = decode(b0, b1, b2, b3, isLittleEndian);
-				in.getChannel().position(tiffHeaderPosition + offset);
-				String str = "";
-				for (int i = 0; i < count; ++i) {
-					str += (char)in.read();
-				}
-				exifValue.setValue(str);
-				in.getChannel().position(position);
-			}*/
+			}
 		} else if (format == 8) { 
 			formatType = "signed short (length : 2 byte)";
 		} else if (format == 9) { 
@@ -920,93 +1160,5 @@ public class Exif {
 		
 		return exifValue;
 	}
-	
-	//IFD1 = Thumbnail
-	//There are 3 formats for thumbnails; JPEG format(JPEG uses YCbCr), RGB TIFF format, YCbCr TIFF format.
-	private void parse_IFD1(FileInputStream in, boolean isLittleEndian, long tiffHeaderPosition, boolean extractThumbnail) throws IOException { 
-		int b0, b1, b2, b3;
-		
-		b0 = in.read();
-		b1 = in.read();
-		int nbIFDEntries = decode(b0, b1, isLittleEndian);
-		
-		debug("IFD1 Entries : " + nbIFDEntries);
 
-		HashMap<Integer, ExifValue> ifd1ExifData = new HashMap<Integer, ExifValue>();
-		
-		for (int i = 1; i <= nbIFDEntries; ++i) {
-			b0 = in.read();
-			b1 = in.read();
-			int tag = decode(b0, b1, isLittleEndian);
-			
-			b0 = in.read();
-			b1 = in.read();
-			int format = decode(b0, b1, isLittleEndian);
-			if ((format < 1) || (format > 13)) {
-				throw new IOException("IDF tag format must bet between [1-13], but is " + format);
-			}
-			
-			b0 = in.read();
-			b1 = in.read();
-			b2 = in.read();
-			b3 = in.read();
-			int count = decode(b0, b1, b2, b3, isLittleEndian);
-
-			b0 = in.read();
-			b1 = in.read();
-			b2 = in.read();
-			b3 = in.read();
-			//int value = decode(b0, b1, b2, b3, isLittleEndian);
-			
-			ifd1ExifData.put(tag, parseIFDData(i, tag, format, count, b0, b1, b2, b3, isLittleEndian, in, tiffHeaderPosition, false));
-		}
-
-		if (extractThumbnail) {
-			long compressionMethod = getLongValue(ifd1ExifData.get(0x0103));
-			
-			if (compressionMethod == 6) {//it's jpeg compression (old method)
-				long jpegIFOffset = getLongValue(ifd1ExifData.get(0x0201));
-				long jpegIFByteCount = getLongValue(ifd1ExifData.get(0x0202));
-				
-				long position = in.getChannel().position();
-				in.getChannel().position(tiffHeaderPosition + jpegIFOffset);
-				byte[] thumbnailData = new byte[(int) jpegIFByteCount];
-				int bread = in.read(thumbnailData, 0, (int)jpegIFByteCount);
-				if (bread != jpegIFByteCount) {
-					throw new IOException("Unable to read all thumbnail data bytes. Have read only " + bread + " bytes instead of " + jpegIFByteCount);
-				}
-				
-				_thumbnail = ImageIO.read(new ByteArrayInputStream(thumbnailData));
-				
-				in.getChannel().position(position);
-				
-				debug("      " + "---> Thumbnail extraction done");
-			} else {
-				debug("      " + "---> Uknown compression method " + compressionMethod + " to extract thumbnail image.", true);
-			}
-		}
-		
-		
-		
-		//IFD1 always and to a pointer to IFD2 (or 0 if no IFD2).
-		b0 = in.read();
-		b1 = in.read();
-		b2 = in.read();
-		b3 = in.read();
-		
-		int offsetToIFD2 = decode(b0, b1, b2, b3, isLittleEndian);
-		
-		debug("IFD1 Offset to IFD2 : " + offsetToIFD2 + " (" + String.format("%02X", b0) + " " + String.format("%02X", b1) + " " + String.format("%02X", b2) + " " + String.format("%02X", b3) + ")");
-
-		
-	}
-	
-	private long getLongValue(ExifValue exifValue) {
-		if (exifValue != null) {
-			if (exifValue.getValue() instanceof Integer) {
-				return ((Integer)exifValue.getValue()).longValue();
-			}
-		}
-		return 0;
-	}	
 }
