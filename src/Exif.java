@@ -1,9 +1,11 @@
 package exif;
 
 import java.awt.image.BufferedImage;
+import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -20,7 +22,7 @@ import javax.imageio.ImageIO;
  * TODO: Decode MarkerNote
  * TODO: Decode UserComment
  * TODO: Decode Thumbnail (other than compressFormat 6)
- *  * TODO: In Rational: add a getDoubleValue() which return the computation, and add a getIntegerValue() which return the computation only if the divide result is an integer!
+ * TODO: In Rational: add a getDoubleValue() which return the computation, and add a getIntegerValue() which return the computation only if the divide result is an integer!
  * 
  * 
  * Some useful website found to understand JPEG metadata format and EXIF tags: 
@@ -53,6 +55,11 @@ public class Exif {
 	private HashMap<String, ExifValue>  _exifDataByTagName;
 	private List<ExifValue> 			_exifDataExtracted;
 	private BufferedImage				_thumbnail;
+	
+	private HashMap<Integer, ExifValue> _makerNoteDataByTagValue;
+	private HashMap<String, ExifValue>  _makerNoteDataByTagName;
+	private List<ExifValue> 			_makerNoteDataExtracted;
+	
 	
 	public Exif(File file) throws IOException {
 		this.initExifDatas();
@@ -195,6 +202,7 @@ public class Exif {
 		this.addExifData(0xA407, "GainControl", "Indicates the degree of overall image gain adjustment.  The specification defines these values: 0 = None / 1 = Low gain up / 2 = High gain up / 3 = Low gain down / 4 = High gain down.");
 		this.addExifData(0xA432, "LensSpecification", "This tag notes minimum focal length, maximum focal length, minimum F number in the minimum focal length, and minimum F number in the maximum focal length, which are specification information for the lens that was used in photography. When the minimum F number is unknown, the notation is 0/0.");
 		//-- Tag used by GPSInfo ----------------------------------------------
+		this.addExifData(0x0000, "GPSVersionID", " Indicates the version of GPSInfoIFD. The version is given as byte sequence 2, 2, 0, 0 to indicate version 2.2. This tag is mandatory when GPS IFD tag is present. Note that the GPSVersionID tag is written differently from the ExifVersion tag.");
 		this.addExifData(0x0001, "GPSLatitudeRef", "Indicates whether the latitude is north or south latitude. The ASCII value 'N' indicates north latitude, and 'S' is south latitude.");
 		this.addExifData(0x0002, "GPSLatitude", "Indicates the latitude. The latitude is expressed as three RATIONAL values giving the degrees, minutes, and seconds, respectively. If latitude is expressed as degrees, minutes and seconds, a typical format would be dd/1,mm/1,ss/1. When degrees and minutes are used and, for example, fractions of minutes are given up to two decimal places, the format would be dd/1,mmmm/100,0/1.");
 		this.addExifData(0x0003, "GPSLongitudeRef", "Indicates whether the longitude is east or west longitude. ASCII 'E' indicates east longitude, and 'W' is west longitude.");
@@ -202,12 +210,19 @@ public class Exif {
 		this.addExifData(0x0005, "GPSAltitudeRef", "Indicates the altitude used as the reference altitude. If the reference is sea level and the altitude is above sea level, 0 is given. If the altitude is below sea level, a value of 1 is given and the altitude is indicated as an absolute value in the GPSAltitude tag. The reference unit is meters. Note that this tag is BYTE type, unlike other reference tags. The specification defines these values: 0 = Above sea level / 1 = Below sea level");
 		this.addExifData(0x0006, "GPSAltitude", "Indicates the altitude based on the reference in GPSAltitudeRef. Altitude is expressed as one RATIONAL value. The reference unit is meters.");
 		this.addExifData(0x0007, "GPSTimeStamp", "Indicates the time as UTC (Coordinated Universal Time). TimeStamp is expressed as three RATIONAL values giving the hour, minute, and second.");
+		this.addExifData(0x0008, "GPSSatellites", "Indicates the GPS satellites used for measurements. This tag can be used to describe the number of satellites, their ID number, angle of elevation, azimuth, SNR and other information in ASCII notation. The format is not specified. If the GPS receiver is incapable of taking measurements, value of the tag shall be set to NULL.");
+		this.addExifData(0x0009, "GPSStatus", "Indicates the status of the GPS receiver when the image is recorded. The speficiation defines these values: 'A' = Measurement is in progress / 'V' = Measurement is Interoperability");
+		this.addExifData(0x000A, "GPSMeasureMode", "Indicates the GPS measurement mode. The specification defines these values: '2' = 2-dimensional measurement / '3' = 3-dimensional measurement");
 		this.addExifData(0x000C, "GPSSpeedRef", "Indicates the unit used to express the GPS receiver speed of movement. The specification defines these values: 'K' = Kilometers per hour / 'M' = Miles per hour / 'N' = Knots");
 		this.addExifData(0x000D, "GPSSpeed", "Indicates the speed of GPS receiver movement.");
+		this.addExifData(0x000E, "GPSTrackRef", "Indicates the reference for giving the direction of GPS receiver movement. The specification defines these values: 'T' = True direction / 'M' = Magnetic direction");
+		this.addExifData(0x000F, "GPSTrack", "Indicates the direction of GPS receiver movement. The range of values is from 0.00 to 359.99.");
 		this.addExifData(0x0010, "GPSImgDirectionRef", "Indicates the reference for giving the direction of the image when it is captured. The specification defines these values: 'T' = True direction / 'M' = Magnetic direction");
 		this.addExifData(0x0011, "GPSImgDirection", "Indicates the direction of the image when it was captured. The range of values is from 0.00 to 359.99.");
+		this.addExifData(0x0012, "GPSMapDatum", "Indicates the geodetic survey data used by the GPS receiver. If the survey data is restricted to Japan, the value of this tag is 'TOKYO' or 'WGS-84'. If a GPS Info tag is recorded, it is strongly recommended that this tag be recorded.");
 		this.addExifData(0x0017, "GPSDestBearingRef", "Indicates the reference used for giving the bearing to the destination point. The specification defines these values: 'T' = True direction / 'M' = Magnetic direction");
 		this.addExifData(0x0018, "GPSDestBearing", "Indicates the bearing to the destination point. The range of values is from 0.00 to 359.99.");
+		this.addExifData(0x001B, "GPSProcessingMethod", "A character string recording the name of the method used for location finding. The first byte indicates the character code used, and this is followed by the name of the method. Since the Type is not ASCII, NULL termination is not necessary.");
 		this.addExifData(0x001D, "GPSDateStamp", "A character string recording date and time information relative to UTC (Coordinated Universal Time). The format is 'YYYY:MM:DD.' The length of the string is 11 bytes including NULL.");
 		//-- Tag used by IFD1 (thumbnail image) -------------------------------
 		this.addExifData(0x0100, "ImageWidth", "Width of thumbnail image.");
@@ -745,14 +760,16 @@ public class Exif {
 	}
 	
 	private class SubIDFPtr {
-		public SubIDFPtr(String name, Long ptr, boolean isMakerNote) {
+		public SubIDFPtr(String name, Long ptr, boolean isMakerNote, Long size) {
 			this.name = name;
 			this.ptr = ptr;
 			this.isMakerNote = isMakerNote;
+			this.size = size;
 		}
 		public String name;
 		public Long ptr;
 		public boolean isMakerNote;
+		public Long size;
 	}
 	
 	private void parse_SubIFD(FileInputStream in, boolean isLittleEndian, String prefix, long tiffHeaderPosition) throws IOException { 
@@ -805,7 +822,7 @@ public class Exif {
 						}
 					}
 					isSubIdf = true;
-					subIDF.add(new SubIDFPtr(exifValue.getTagName(), (long)value, tag == 0x927c));
+					subIDF.add(new SubIDFPtr(exifValue.getTagName(), (long)value, tag == 0x927c, (long)count));
 					debug("      " + String.format("%02d", i) + " : TAG = " + this.get(tag).getFullTitle(), this.get(tag).getTagName() == null);
 				}
 			}
@@ -819,84 +836,13 @@ public class Exif {
 			long position = in.getChannel().position();
 			in.getChannel().position(tiffHeaderPosition + offset.ptr);
 			if (offset.isMakerNote) {
-				parse_MakerNote(in, isLittleEndian, "Sub-IDF '"+ offset.name + "'", tiffHeaderPosition);
+				parse_MakerNote(in, isLittleEndian, "Sub-IDF '"+ offset.name + "'", tiffHeaderPosition, offset.size);
 			} else {
 				parse_SubIFD(in, isLittleEndian, "Sub-IDF '"+ offset.name + "'", tiffHeaderPosition);
 			}
 			in.getChannel().position(position);
 		}
 	}
-	
-	
-	private void parse_MakerNote(FileInputStream in, boolean isLittleEndian, String prefix, long tiffHeaderPosition) throws IOException {
-		String manufacturer = getStringValue(this.get(0x010F)).trim();
-		String model = getStringValue(this.get(0x0110)).trim();
-		
-		debug("\n" + prefix + " for " + manufacturer + " " + model);
-		
-		/*
-		String str = "";
-		for (int i = 0; i < 50; ++i) {
-			str += (char)in.read();
-		}
-		System.out.println(str);
-		*/
-		
-		if (manufacturer.compareTo("Apple") == 0) {
-			parse_MakerNote_Apple(in, isLittleEndian, tiffHeaderPosition);
-		} else {
-			debug("      " + "    Unknow how to decode specific data encoding for manufacturer '" + manufacturer + "' and camera '" + model + "'", true);
-		}
-			
-	}
-	
-	private void parse_MakerNote_Apple(FileInputStream in, boolean isLittleEndian, long tiffHeaderPosition) throws IOException {
-		String identifer = "Apple iOS";
-		for (int i = 0; i < identifer.length(); ++i) {
-			if (identifer.charAt(i) != (char)in.read()) {
-				//TODO : REJECT
-			}
-		}
-		
-		//TODO: maybe move forward to +1 or +2 bytes (\0\0 chars at end of marker?), then read tags?
-		
-		/*
-		int b0, b1, b2, b3;
-		
-		b0 = in.read();
-		b1 = in.read();
-		int tag = decode(b0, b1, isLittleEndian);
-		
-		int t0 = b0;
-		int t1 = b1;
-		
-		b0 = in.read();
-		b1 = in.read();
-		int format = decode(b0, b1, isLittleEndian);
-		
-		b0 = in.read();
-		b1 = in.read();
-		b2 = in.read();
-		b3 = in.read();
-		int count = decode(b0, b1, b2, b3, isLittleEndian);
-
-		b0 = in.read();
-		b1 = in.read();
-		b2 = in.read();
-		b3 = in.read();
-		int value = decode(b0, b1, b2, b3, isLittleEndian);
-		
-		int idx = 1;
-		
-
-		
-		debug("      " + String.format("%02d", idx) + " : TAG = 0x" + String.format("%02X", t0) + String.format("%02X", t1));
-		debug("      " + String.format("%02d", idx) + " : FORMAT = " + format);
-		debug("      " + String.format("%02d", idx) + " : COUNT = " + count);
-		debug("      " + String.format("%02d", idx) + " : VALUE = " + value + " (" + String.format("%02X", b0) + " " + String.format("%02X", b1) + " " + String.format("%02X", b2) + " " + String.format("%02X", b3) + ")");
-		*/
-	}
-
 	
 	//IFD1 = Thumbnail
 	//There are 3 formats for thumbnails; JPEG format(JPEG uses YCbCr), RGB TIFF format, YCbCr TIFF format.
@@ -997,6 +943,153 @@ public class Exif {
 	}
 	
 	
+	//---------------------------------------------------------------------------------------------
+	// MakerNote decode : has proprietary data encoding format specific to manufacturer and camera!
+	//----------------------------------------------------------------------------------------------
+	
+	private void parse_MakerNote(FileInputStream in, boolean isLittleEndian, String prefix, long tiffHeaderPosition, long size) throws IOException {
+		String manufacturer = getStringValue(this.get(0x010F)).trim();
+		String camera = getStringValue(this.get(0x0110)).trim();
+		
+		debug("\n" + prefix + " for " + manufacturer + " " + camera);
+		
+		//--> Debug output the makernote data
+		/*
+		long position = in.getChannel().position();
+		BufferedWriter bw = new BufferedWriter(new FileWriter(new File("D:\\TestJpegOptim\\src\\IMGP1451_MakerNote.txt")));
+		for (int i = 0; i < size; ++i) {
+			if ((i % 20) == 0) {
+				bw.write("\n");
+			}
+			bw.write(String.format("%02X", in.read()) + " ");
+		}
+		bw.write("\n");
+		bw.close();
+		in.getChannel().position(position);
+		*/
+		//--< Debug output the makernote data
+		
+		
+		/*if (manufacturer.compareTo("Apple") == 0) {
+			parse_MakerNote_Apple(in, isLittleEndian, tiffHeaderPosition);
+		} else if ((manufacturer.compareTo("RICOH IMAGING COMPANY, LTD.") == 0) && (camera.startsWith("PENTAX"))) {
+			parse_MakerNote_Pentax(in, isLittleEndian, tiffHeaderPosition, size);
+		} else {*/
+			debug("      " + "    Unknow how to decode proprietary data encoding format for manufacturer '" + manufacturer + "' and camera '" + camera + "'", true);
+		//}
+			
+	}
+	/*
+	
+	private void parse_MakerNote_Apple(FileInputStream in, boolean isLittleEndian, long tiffHeaderPosition) throws IOException {
+		String identifer = "Apple iOS";
+		for (int i = 0; i < identifer.length(); ++i) {
+			if (identifer.charAt(i) != (char)in.read()) {
+				//TODO : REJECT
+			}
+		}
+	}
+	
+	
+	private void parse_MakerNote_Pentax(FileInputStream in, boolean isLittleEndian, long tiffHeaderPosition, long size) throws IOException {
+		_makerNoteDataByTagValue = new HashMap<Integer, ExifValue>();
+		_makerNoteDataByTagName = new HashMap<String, ExifValue>();
+		_makerNoteDataExtracted = new LinkedList<ExifValue>();
+		
+		ExifValue ev;
+		ev = new ExifValue(0x0000, "PentaxVersion", "", false); _makerNoteDataByTagValue.put(ev._tagValue, ev); _makerNoteDataByTagName.put(ev._tagName, ev);
+		ev = new ExifValue(0x0001, "PentaxModelType", "", false); _makerNoteDataByTagValue.put(ev._tagValue, ev); _makerNoteDataByTagName.put(ev._tagName, ev);
+		ev = new ExifValue(0x0005, "PentaxModelID", "", false); _makerNoteDataByTagValue.put(ev._tagValue, ev); _makerNoteDataByTagName.put(ev._tagName, ev);
+		ev = new ExifValue(0x0006, "Date", "", false); _makerNoteDataByTagValue.put(ev._tagValue, ev); _makerNoteDataByTagName.put(ev._tagName, ev);
+		ev = new ExifValue(0x0007, "Time", "", false); _makerNoteDataByTagValue.put(ev._tagValue, ev); _makerNoteDataByTagName.put(ev._tagName, ev);
+		ev = new ExifValue(0x0008, "Quality", "0 = Good / 1 = Better / 2 = Best / 3 = TIFF / 4 = RAW / 5 = Premium / 7 = RAW (pixel shift enabled) / 65535 = na", false); _makerNoteDataByTagValue.put(ev._tagValue, ev); _makerNoteDataByTagName.put(ev._tagName, ev);
+		ev = new ExifValue(0x000C, "FlashMode", "", false); _makerNoteDataByTagValue.put(ev._tagValue, ev); _makerNoteDataByTagName.put(ev._tagName, ev);
+		ev = new ExifValue(0x000D, "FocusMode", "", false); _makerNoteDataByTagValue.put(ev._tagValue, ev); _makerNoteDataByTagName.put(ev._tagName, ev);
+		ev = new ExifValue(0x000E, "AFPointSelected", "", false); _makerNoteDataByTagValue.put(ev._tagValue, ev); _makerNoteDataByTagName.put(ev._tagName, ev);
+		ev = new ExifValue(0x0012, "ExposureTime", "", false); _makerNoteDataByTagValue.put(ev._tagValue, ev); _makerNoteDataByTagName.put(ev._tagName, ev);
+		
+		
+		skipBytes(in, 12);
+		
+		
+		for (int idx = 0; idx < 20; ++idx) {
+			
+			int b0 = in.read();
+			int b1 = in.read();
+			int tag = decode(b0, b1, isLittleEndian);
+			
+			b0 = in.read();
+			b1 = in.read();
+			int format = decode(b0, b1, isLittleEndian);
+			if ((format < 1) || (format > 13)) {
+				throw new IOException("IDF tag format must bet between [1-13], but is " + format);
+			}
+
+			b0 = in.read();
+			b1 = in.read();
+			int b2 = in.read();
+			int b3 = in.read();
+			int count = decode(b0, b1, b2, b3, isLittleEndian);
+	
+			b0 = in.read();
+			b1 = in.read();
+			b2 = in.read();
+			b3 = in.read();
+			//int value = decode(b0, b1, b2, b3, isLittleEndian);
+			
+			ExifValue exifValue = _makerNoteDataByTagValue.get(tag);
+			if (exifValue == null) {
+				exifValue = new ExifValue(tag); 
+				_makerNoteDataByTagValue.put(tag, exifValue); 
+			}
+			
+			_makerNoteDataExtracted.add(exifValue);
+			
+			
+			
+			
+			String formatType = "";
+			if (format == 1) {
+				formatType = "unsigned byte (length : 1 byte)";
+			} else if (format == 2) {
+				formatType = "ascii strings (length : 1 byte)";
+			} else if (format == 3) {
+				formatType = "unsigned short (length : 2 byte)";
+			} else if (format == 4) {
+				formatType = "unsigned long (length : 4 byte)";
+			} else if (format == 5) {
+				formatType = "unsigned rational (length : 8 byte)";
+			} else if (format == 6) { 
+				formatType = "signed byte (length : 1 byte)";
+			} else if (format == 7) { 
+				formatType = "undefined (length : 1 byte)";
+			} else if (format == 8) { 
+				formatType = "signed short (length : 2 byte)";
+			} else if (format == 9) { 
+				formatType = "signed long (length : 4 byte)";
+			} else if (format == 10) { 
+				formatType = "signed rational (length : 8 byte)";
+			} else if (format == 11) { 
+				formatType = "signed float (length : 4 byte)";
+			} else if (format == 12) { 
+				formatType = "double float (length : 8 byte)";
+			} else if (format == 13) { 
+				formatType = "offset to subdirectory (length : 4 byte)";
+			} else {
+				formatType = "BUG";
+			}
+			
+			
+			
+			
+			debug("      " + String.format("%02d", idx) + " : TAG = " + exifValue.getFullTitle(), exifValue.getTagName() == null);
+			debug("      " + String.format("%02d", idx) + " : FORMAT = " + format + " = " + formatType);
+			debug("      " + String.format("%02d", idx) + " : COUNT = " + count);
+			debug("      " + String.format("%02d", idx) + " : VALUE = " + decode(b0, b1, b2, b3, isLittleEndian) + " (" + String.format("%02X", b0) + " " + String.format("%02X", b1) + " " + String.format("%02X", b2) + " " + String.format("%02X", b3) + ")");
+		}
+	}
+	*/
+	
 	//-------------------------------------------------------------------------
 	// Decode exif tag value
 	//-------------------------------------------------------------------------
@@ -1017,7 +1110,10 @@ public class Exif {
 		String formatType = "";
 		if (format == 1) {
 			formatType = "unsigned byte (length : 1 byte)";
-			if (count == 1) {
+			//unsigned byte type can be used to express lot of stuff, so it must be decoded according to the tag
+			if ((tag == 0x0000) && (count == 4)) {
+				exifValue.setValue("" + (int)b0 + "." + (int)b1 + "." + (int)b2 + "." + (int)b3);
+			} else if ((tag == 0x0005) && (count == 1)) {
 				exifValue.setValue((int)b0);
 			}
 		} else if (format == 2) {
@@ -1093,7 +1189,7 @@ public class Exif {
 			formatType = "signed byte (length : 1 byte)";
 		} else if (format == 7) { 
 			formatType = "undefined (length : 1 byte)";
-			//when undefined format used, we must decode value according by tag!
+			//when undefined format used, we must decode value according to the tag!
 			if ((tag == 0x9000) && (count == 4)) {
 				exifValue.setValue("" + (char)b0 + (char)b1 + (char)b2 + (char)b3);
 			} else if ((tag ==  0x9101) && (count == 4)) {
@@ -1104,6 +1200,16 @@ public class Exif {
 				exifValue.setValue(decode(b0, b1, b2, b3, isLittleEndian));
 			} else if ((tag == 0xA301) && (count == 1)) {
 				exifValue.setValue(decode(b0, b1, b2, b3, isLittleEndian));
+			} else if ((tag == 0x001B) && (count > 4)) {
+				long position = in.getChannel().position();
+				int offset = decode(b0, b1, b2, b3, isLittleEndian);
+				in.getChannel().position(tiffHeaderPosition + offset);
+				StringBuilder str = new StringBuilder();
+				for (int i = 0; i < count; ++i) {
+					str.append((char)in.read());
+				}
+				exifValue.setValue(str.toString());
+				in.getChannel().position(position);
 			}
 		} else if (format == 8) { 
 			formatType = "signed short (length : 2 byte)";
